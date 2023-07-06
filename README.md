@@ -86,35 +86,35 @@ and when it completes successfully look for the following files in the newly cre
             </tr>
             <tr>
                 <td>
-                    <a href="ElementumService-armeabi-v7a-release-0.1.910001.apk">ElementumService-armeabi-v7a-release-0.1.910001.apk</a>
+                    <a href="https://github.com/AGVD/ElementumService/releases/download/11.65/ElementumService-armeabi-v7a-release-0.1.910001.apk">ElementumService-armeabi-v7a-release-0.1.910001.apk</a>
                 </td>
                 <td>2023-07-06 01:18</td>
                 <td style="text-align: right;">21941035B</td>
             </tr>
             <tr>
                 <td>
-                    <a href="ElementumService-universal-release-0.1.910001.apk">ElementumService-universal-release-0.1.910001.apk</a>
+                    <a href="https://github.com/AGVD/ElementumService/releases/download/11.65/ElementumService-universal-release-0.1.910001.apk">ElementumService-universal-release-0.1.910001.apk</a>
                 </td>
                 <td>2023-07-06 01:18</td>
                 <td style="text-align: right;">64630682B</td>
             </tr>
             <tr>
                 <td>
-                    <a href="ElementumService-x86-release-0.1.910001.apk">ElementumService-x86-release-0.1.910001.apk</a>
+                    <a href="https://github.com/AGVD/ElementumService/releases/download/11.65/ElementumService-x86-release-0.1.910001.apk">ElementumService-x86-release-0.1.910001.apk</a>
                 </td>
                 <td>2023-07-06 01:18</td>
                 <td style="text-align: right;">23028543B</td>
             </tr>
             <tr>
                 <td>
-                    <a href="ElementumService-x86_64-release-0.1.910001.apk">ElementumService-x86_64-release-0.1.910001.apk</a>
+                    <a href="https://github.com/AGVD/ElementumService/releases/download/11.65/ElementumService-x86_64-release-0.1.910001.apk">ElementumService-x86_64-release-0.1.910001.apk</a>
                 </td>
                 <td>2023-07-06 01:18</td>
                 <td style="text-align: right;">22961160B</td>
             </tr>
             <tr>
                 <td>
-                    <a href="plugin.video.elementum-0.1.910001.android_client.zip">plugin.video.elementum-0.1.910001.android_client.zip</a>
+                    <a href="https://github.com/AGVD/ElementumService/releases/download/11.65/plugin.video.elementum-0.1.910001.android_client.zip">plugin.video.elementum-0.1.910001.android_client.zip</a>
                 </td>
                 <td>2023-07-06 01:18</td>
                 <td style="text-align: right;">8291623B</td>
