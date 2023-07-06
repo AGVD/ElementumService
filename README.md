@@ -1,5 +1,8 @@
 # ElementumService
 
+
+
+
 A service that executes binaries for [Kodi](https://github.com/xbmc/xbmc)'s addon [Elementum](https://github.com/elgatito/plugin.video.elementum) on [Android](https://www.android.com/) without a [W^X violation](https://developer.android.com/about/versions/10/behavior-changes-10#execute-permission).
 
 **Update:** The service should no longer be necessary for newer versions of [Elementum](https://github.com/elgatito/plugin.video.elementum) as they fallback to [loading](https://en.wikipedia.org/wiki/Dynamic_loading) binaries in the same process if they cannot start a new one. This project will be maintained in case something else comes up.
@@ -53,3 +56,70 @@ and when it completes successfully look for the following files in the newly cre
 * You will no longer be able to use paths to [Kodi](https://github.com/xbmc/xbmc)'s data folder as they will be translated to the service app's data folder.
 
 * The output from the binaries will no longer appear in [Kodi's log](https://kodi.wiki/view/Log_file) and will go to [Android's log](https://developer.android.com/studio/command-line/logcat) instead.
+
+* 
+
+
+
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="en" style="color-scheme: light dark;">
+    <head>
+        <meta charset="utf-8"/>
+        <title>ElementumService</title>
+    </head>
+    <body>
+        <table>
+            <tr>
+                <td>
+                    <a href="ElementumService-arm64-v8a-release-0.1.910001.apk">ElementumService-arm64-v8a-release-0.1.910001.apk</a>
+                </td>
+                <td>2023-07-06 01:18</td>
+                <td style="text-align: right;">22068021B</td>
+            </tr>
+            <tr>
+                <td>
+                    <a href="ElementumService-armeabi-v7a-release-0.1.910001.apk">ElementumService-armeabi-v7a-release-0.1.910001.apk</a>
+                </td>
+                <td>2023-07-06 01:18</td>
+                <td style="text-align: right;">21941035B</td>
+            </tr>
+            <tr>
+                <td>
+                    <a href="ElementumService-universal-release-0.1.910001.apk">ElementumService-universal-release-0.1.910001.apk</a>
+                </td>
+                <td>2023-07-06 01:18</td>
+                <td style="text-align: right;">64630682B</td>
+            </tr>
+            <tr>
+                <td>
+                    <a href="ElementumService-x86-release-0.1.910001.apk">ElementumService-x86-release-0.1.910001.apk</a>
+                </td>
+                <td>2023-07-06 01:18</td>
+                <td style="text-align: right;">23028543B</td>
+            </tr>
+            <tr>
+                <td>
+                    <a href="ElementumService-x86_64-release-0.1.910001.apk">ElementumService-x86_64-release-0.1.910001.apk</a>
+                </td>
+                <td>2023-07-06 01:18</td>
+                <td style="text-align: right;">22961160B</td>
+            </tr>
+            <tr>
+                <td>
+                    <a href="plugin.video.elementum-0.1.910001.android_client.zip">plugin.video.elementum-0.1.910001.android_client.zip</a>
+                </td>
+                <td>2023-07-06 01:18</td>
+                <td style="text-align: right;">8291623B</td>
+            </tr>
+        </table>
+    </body>
+</html>
+
