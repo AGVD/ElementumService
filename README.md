@@ -79,7 +79,7 @@ and when it completes successfully look for the following files in the newly cre
         <table>
             <tr>
                 <td>
-                    <a href="ElementumService-arm64-v8a-release-0.1.910001.apk">ElementumService-arm64-v8a-release-0.1.910001.apk</a>
+                    <a href="https://github.com/AGVD/ElementumService/releases/download/11.65/ElementumService-arm64-v8a-release-0.1.910001.apk">ElementumService-arm64-v8a-release-0.1.910001.apk</a>
                 </td>
                 <td>2023-07-06 01:18</td>
                 <td style="text-align: right;">22068021B</td>
