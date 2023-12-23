@@ -11,46 +11,52 @@ plugins {
 	id 'org.jetbrains.kotlin.android'
 }
 
-def buildDir = layout.buildDirectory.asFile.get()
-def srcGen = "$buildDir.path/src"
-def srcMainGen = "$srcGen/main"
-def srcMainAssetsGen = "$srcMainGen/assets"
-def srcMainAbiHeadsGen = "$srcMainGen/abiHeads"
-def srcMainJniLibsGen = "$srcMainGen/jniLibs"
-def addonId = 'plugin.video.elementum'
-def addonZip = System.getProperty('elementum.addon.zip') ?: localProperties.getProperty('elementum.addon.zip')
-def addonDir = addonZip?.with { "$buildDir.path/${file(it).name - ~/\.[^.]+$/}" }
-def addonIdDir = addonDir?.with { "$it/$addonId" }
-def addonBinDir = addonIdDir?.with { "$it/resources/bin" }
-def abiBins = [
-		'arm64-v8a'  : 'android_arm64',
-		'armeabi-v7a': 'android_arm',
-		'x86'        : 'android_x86',
-		'x86_64'     : 'android_x64'
-]
-def isAddonBinLib = localProperties.getProperty('is.elementum.addon.bin.lib') as Boolean ?: addonZip?.with {
-	new ZipFile(it)
-}?.withCloseable {
-	abiBins.any { abi, bin ->
-		it.getEntry("$addonId/resources/bin/$bin/elementum")?.isDirectory() != false
-	}
-} ?: false
-def argTranslatePath = '-translatePath'
-def kodiId = 'org.xbmc.kodi'
-def dataDir = '/Download/'
-def kodiDataDir = "/Android/data/$kodiId/files/"
-def repoUrl = "https://StefanIlchev.github.io/$rootProject.name/"
+ext {
+	buildFolder = layout.buildDirectory.asFile.get()
+	srcGen = "$buildFolder.path/src"
+	srcMainGen = "$srcGen/main"
+	srcMainAssetsGen = "$srcMainGen/assets"
+	srcMainAbiHeadsGen = "$srcMainGen/abiHeads"
+	srcMainJniLibsGen = "$srcMainGen/jniLibs"
+	appVersionCode = localProperties.getProperty('elementum.version.code') as Integer ?: 79
+	appVersionName = localProperties.getProperty('elementum.version.name') ?: "$appVersionCode"
+	addonId = 'plugin.video.elementum'
+	addonZip = System.getProperty('elementum.addon.zip') ?: localProperties.getProperty('elementum.addon.zip')
+	addonDir = addonZip?.with { "$buildFolder.path/${file(it).name - ~/\.[^.]+$/}" }
+	addonIdDir = addonDir?.with { "$it/$addonId" }
+	addonBinDir = addonIdDir?.with { "$it/resources/bin" }
+	androidClientZip = file "$buildFolder.path/$addonId-${appVersionName}.android_client.zip"
+	abiBins = [
+			'arm64-v8a'  : 'android_arm64',
+			'armeabi-v7a': 'android_arm',
+			'x86'        : 'android_x86',
+			'x86_64'     : 'android_x64'
+	]
+	isAddonBinLib = localProperties.getProperty('is.elementum.addon.bin.lib') as Boolean ?: addonZip?.with {
+		new ZipFile(it)
+	}?.withCloseable {
+		abiBins.any { abi, bin ->
+			it.getEntry("$addonId/resources/bin/$bin/elementum")?.isDirectory() != false
+		}
+	} ?: false
+	mainIntentAction = 'android.intent.action.MAIN'
+	argTranslatePath = '-translatePath'
+	localPort = 65220
+	kodiId = 'org.xbmc.kodi'
+	dataDir = '/Download'
+	kodiDataDir = "/Android/data/$kodiId/files"
+	repoUrl = "https://StefanIlchev.github.io/$rootProject.name/"
+}
+
+kotlin {
+	jvmToolchain libs.versions.jvmToolchain.get() as int
+}
 
 android {
 	buildToolsVersion = libs.versions.buildToolsVersion.get()
 	compileSdk = libs.versions.compileSdk.get() as int
 	ndkVersion = libs.versions.ndkVersion.get()
 	namespace = 'service.elementum.android'
-
-	compileOptions {
-		sourceCompatibility = JavaVersion.VERSION_17
-		targetCompatibility = JavaVersion.VERSION_17
-	}
 
 	if (isAddonBinLib) {
 		externalNativeBuild {
@@ -62,16 +68,21 @@ android {
 		}
 	}
 
+	buildFeatures {
+		buildConfig = true
+	}
+
 	defaultConfig {
 		minSdk = libs.versions.minSdk.get() as int
 		targetSdk = compileSdk
-		versionCode = localProperties.getProperty('elementum.version.code') as Integer ?: 71
-		versionName = localProperties.getProperty('elementum.version.name') ?: "$versionCode"
+		versionCode = appVersionCode
+		versionName = appVersionName
 		manifestPlaceholders = [
-				'mainIntentAction': 'android.intent.action.MAIN'
+				'mainIntentAction': mainIntentAction
 		]
 		buildConfigField 'String', 'ADDON_ID', "\"$addonId\""
 		buildConfigField 'String', 'ARG_TRANSLATE_PATH', "\"$argTranslatePath\""
+		buildConfigField 'int', 'LOCAL_PORT', "$localPort"
 		buildConfigField 'String', 'PROJECT_NAME', "\"$project.name\""
 		buildConfigField 'String', 'REPO_URL', "\"$repoUrl\""
 
@@ -134,6 +145,10 @@ android {
 		abi {
 			enable = true
 			universalApk = true
+			exclude 'mips64',
+					'mips',
+					'armeabi',
+					'riscv64'
 		}
 	}
 
@@ -162,16 +177,13 @@ static String toSetAddonEnabledJson(addonId, enabled) {
 	toMethodJson('Addons.SetAddonEnabled', ['addonid': addonId, 'enabled': enabled])
 }
 
-def addonVersion = android.defaultConfig.versionName
-def mainIntentAction = android.defaultConfig.manifestPlaceholders['mainIntentAction']
-
 tasks.register('startApplication') {
 	group = project.name
 
 	doLast {
 		exec {
 			executable = android.adbExecutable
-			args 'shell', 'am', 'start', '-a', mainIntentAction, '-d', "version:$addonVersion", android.namespace
+			args 'shell', 'am', 'start', '-a', mainIntentAction, '-d', "version:$appVersionName", android.namespace
 		}
 	}
 }
@@ -208,7 +220,7 @@ if (addonBinDir != null) {
 			def addonFile = file "$addonIdDir/addon.xml"
 			def addonInfo = new XmlSlurper().parse addonFile
 			def providerName = addonInfo.@'provider-name'
-			addonInfo.@'version' = addonVersion
+			addonInfo.@'version' = appVersionName
 			addonInfo.'requires'.appendNode {
 				'import'('addon': serviceRepoAddonId, 'optional': 'true')
 			}
@@ -218,7 +230,7 @@ if (addonBinDir != null) {
 				} as Writable, it)
 			}
 			def repoAddonInfoFormat = XmlUtil.serialize(new StreamingMarkupBuilder().bind {
-				'addon'('name': '{name}', 'id': '{id}', 'provider-name': providerName, 'version': addonVersion) {
+				'addon'('name': '{name}', 'id': '{id}', 'provider-name': providerName, 'version': appVersionName) {
 
 					'extension'('name': '{name}', 'point': 'xbmc.addon.repository') {
 
@@ -242,13 +254,69 @@ if (addonBinDir != null) {
 					'requires' {}
 				}
 			})
-			def stopArgs = "$android.namespace, $mainIntentAction, , stop:$addonVersion"
-			def startArgs = "$android.namespace, $mainIntentAction, , version:$addonVersion%s"
+			def startArgs = "$android.namespace, $mainIntentAction, , version:$appVersionName%s"
 			def globalsLine = 'ADDON_VERSION = ADDON.getAddonInfo("version")'
 			def globalsLinePatched = """# BEGIN $project.name-patched: globals
 					|#$globalsLine
 					|ADDON_VERSION = ADDON.getAddonInfo('version')
 					|GLOBALS = {}
+					|
+					|def startApp(args):
+					|    import six
+					|    from kodi_six import xbmc
+					|    dataFragment = '%00'.join(six.moves.urllib_parse.quote(arg, '') for arg in args)
+					|    dataSuffix = '#' + dataFragment if dataFragment != '' else ''
+					|    xbmc.executebuiltin('StartAndroidActivity($startArgs)' % dataSuffix)
+					|
+					|def populateGlobals():
+					|    import socket
+					|    import time
+					|    remotePort = ADDON.getSetting('remote_port')
+					|    port = $localPort
+					|    args = ['$argTranslatePath']
+					|    if remotePort != '':
+					|        port = int(remotePort)
+					|        args.append('-localPort=' + remotePort)
+					|    startApp(args)
+					|    for _ in range(100):
+					|        try:
+					|            chunks = []
+					|            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
+					|                client.connect(('127.0.0.1', port))
+					|                while True:
+					|                    chunk = client.recv(0x2000)
+					|                    if not chunk:
+					|                        break
+					|                    chunks.append(chunk)
+					|            data = b''.join(chunks).decode()
+					|            if '\\0' in data:
+					|                with open(os.path.join(ADDON_PATH, '.globals'), 'w') as f:
+					|                    f.write(data)
+					|                return True
+					|        except Exception:
+					|            pass
+					|        time.sleep(0.1)
+					|    return False
+					|
+					|def getGlobals():
+					|    if GLOBALS:
+					|        return GLOBALS
+					|    with open(os.path.join(ADDON_PATH, '.globals'), 'r') as f:
+					|        homeDirReplacement, xbmcDirReplacement = f.read().split('\\0')
+					|        GLOBALS['special://home'] = homeDirReplacement
+					|        GLOBALS['special://xbmc'] = xbmcDirReplacement
+					|    return GLOBALS
+					|
+					|def retryStartApp():
+					|    if populateGlobals():
+					|        args = []
+					|        if ADDON.getSetting('local_port') != '':
+					|            args.append('-remotePort=' + ADDON.getSetting('local_port'))
+					|        if ADDON.getSetting('remote_host') != '':
+					|            args.append('-localHost=' + ADDON.getSetting('remote_host'))
+					|        if ADDON.getSetting('remote_port') != '':
+					|            args.append('-localPort=' + ADDON.getSetting('remote_port'))
+					|        startApp(args)
 					|# END $project.name-patched: globals""".stripMargin()
 			def versionLine = '    installed_version = read_current_version(binary_dir)'
 			def versionLinePatched = """# BEGIN $project.name-patched: version
@@ -267,7 +335,6 @@ if (addonBinDir != null) {
 			def stopLine = '    lockfile = os.path.join(ADDON_PATH, ".lockfile")'
 			def stopLinePatched = """# BEGIN $project.name-patched: stop
 					|#$stopLine
-					|    xbmc.executebuiltin('StartAndroidActivity($stopArgs)')
 					|    lockfile = os.path.join(ADDON_PATH, '.lockfile')
 					|    if os.path.exists(lockfile):
 					|        os.remove(lockfile)
@@ -275,30 +342,8 @@ if (addonBinDir != null) {
 			def startLine = '            proc = subprocess.Popen(args, **kwargs)'
 			def startLinePatched = """# BEGIN $project.name-patched: start
 					|#$startLine
-					|            from elementum.addon import GLOBALS
-					|            remotePort = ADDON.getSetting('remote_port')
-					|            portSuffix = '%00' + remotePort if remotePort != '' else ''
-					|            translateSuffix = '#$argTranslatePath' + portSuffix
-					|            xbmc.executebuiltin('StartAndroidActivity($startArgs)' % translateSuffix)
-					|            port = int(remotePort) if remotePort != '' else 65220
-					|            for attempt in range(10):
-					|                try:
-					|                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client:
-					|                        client.connect(('127.0.0.1', port))
-					|                        chunks = []
-					|                        while True:
-					|                            chunk = client.recv(0x2000)
-					|                            if not chunk:
-					|                                break
-					|                            chunks.append(chunk)
-					|                        data = ''.join(chunk.decode() for chunk in chunks)
-					|                        homeDirReplacement, xbmcDirReplacement = data.split('\\0')
-					|                        GLOBALS['special://home'] = homeDirReplacement
-					|                        GLOBALS['special://xbmc'] = xbmcDirReplacement
-					|                        break
-					|                except Exception:
-					|                    pass
-					|                time.sleep(1)
+					|            from elementum.addon import populateGlobals, startApp
+					|            from elementum.provider import parse_json
 					|            repoAddonId = '$repoAddonId'
 					|            serviceRepoAddonId = '$serviceRepoAddonId'
 					|            repoAddonInfoFormat = '''$repoAddonInfoFormat'''
@@ -339,12 +384,10 @@ if (addonBinDir != null) {
 					|                    shutil.copy(iconPng, os.path.join(idDir, 'icon.png'))
 					|                except Exception:
 					|                    pass
-					|            dataFragment = '%00'.join(six.moves.urllib_parse.quote(arg, '') for arg in args[1:])
-					|            dataSuffix = '#' + dataFragment if dataFragment != '' else ''
-					|            xbmc.executebuiltin('StartAndroidActivity($startArgs)' % dataSuffix)
+					|            if populateGlobals():
+					|                startApp(args[1:])
 					|            for id in [serviceRepoAddonId]:
 					|                try:
-					|                    from elementum.provider import parse_json
 					|                    detailsJson = '${toGetAddonDetailsJson('%s', ['installed', 'enabled'])}' % id
 					|                    enableJson = '${toSetAddonEnabledJson('%s', true)}' % id
 					|                    addon = parse_json(xbmc.executeJSONRPC(detailsJson)) \\
@@ -355,12 +398,12 @@ if (addonBinDir != null) {
 					|                        continue
 					|                    xbmc.executebuiltin('UpdateLocalAddons')
 					|                    xbmc.executebuiltin('InstallAddon(%s)' % id)
-					|                    for attempt in range(10):
+					|                    for _ in range(10):
 					|                        addon = parse_json(xbmc.executeJSONRPC(detailsJson)) \\
 					|                            .get('result', {}).get('addon', {})
 					|                        if addon.get('installed', False):
 					|                            break
-					|                        time.sleep(1)
+					|                        time.sleep(1.0)
 					|                    xbmc.executeJSONRPC(enableJson)
 					|                    xbmc.executebuiltin('UpdateLocalAddons')
 					|                    xbmc.executebuiltin('UpdateAddonRepos')
@@ -368,30 +411,32 @@ if (addonBinDir != null) {
 					|                    pass
 					|            return None
 					|# END $project.name-patched: start""".stripMargin()
-			def retryLine = '            notify(getLocalizedString(30116), time=7000)'
+			def retryLine = '        data = _json(url)'
 			def retryLinePatched = """# BEGIN $project.name-patched: retry
 					|#$retryLine
-					|            args = []
-					|            if ADDON.getSetting('local_port') != '':
-					|                args.append('-remotePort=' + ADDON.getSetting('local_port'))
-					|            if ADDON.getSetting('remote_host') != '':
-					|                args.append('-localHost=' + ADDON.getSetting('remote_host'))
-					|            if ADDON.getSetting('remote_port') != '':
-					|                args.append('-localPort=' + ADDON.getSetting('remote_port'))
-					|            dataFragment = '%00'.join(six.moves.urllib_parse.quote(arg, '') for arg in args)
-					|            dataSuffix = '#' + dataFragment if dataFragment != '' else ''
-					|            xbmc.executebuiltin('StartAndroidActivity($startArgs)' % dataSuffix)
-					|            notify(getLocalizedString(30116), time = 7000)
+					|        from elementum.addon import retryStartApp
+					|        try:
+					|            data = _json(url)
+					|        except ConnectionResetError:
+					|            retryStartApp()
+					|            raise
+					|        except urllib_error.URLError as e:
+					|            if isinstance(e.reason, IOError) or \\
+					|                    isinstance(e.reason, OSError) or \\
+					|                    'Connection refused' in e.reason:
+					|                retryStartApp()
+					|            raise
 					|# END $project.name-patched: retry""".stripMargin()
 			def infoLine = '        return info'
 			def infoLinePatched = """# BEGIN $project.name-patched: info
 					|#$infoLine
-					|        from elementum.addon import GLOBALS
+					|        from elementum.addon import getGlobals
+					|        globals = getGlobals()
 					|        result = {}
 					|        homeDir = translatePath('special://home')
-					|        homeDirReplacement = GLOBALS['special://home']
+					|        homeDirReplacement = globals['special://home']
 					|        xbmcDir = translatePath('special://xbmc')
-					|        xbmcDirReplacement = GLOBALS['special://xbmc']
+					|        xbmcDirReplacement = globals['special://xbmc']
 					|        for key, value in info.items():
 					|            if value.startswith(homeDir):
 					|                result[key] = value.replace(homeDir, homeDirReplacement, 1)
@@ -404,14 +449,14 @@ if (addonBinDir != null) {
 			def translateLine = '        return translatePath(*args, **kwargs)'
 			def translateLinePatched = """# BEGIN $project.name-patched: translate
 					|#$translateLine
-					|        from elementum.addon import GLOBALS
+					|        from elementum.addon import getGlobals
 					|        result = translatePath(*args, **kwargs)
 					|        homeDir = translatePath('special://home')
 					|        if result.startswith(homeDir):
-					|            return result.replace(homeDir, GLOBALS['special://home'], 1)
+					|            return result.replace(homeDir, getGlobals()['special://home'], 1)
 					|        xbmcDir = translatePath('special://xbmc')
 					|        if result.startswith(xbmcDir):
-					|            return result.replace(xbmcDir, GLOBALS['special://xbmc'], 1)
+					|            return result.replace(xbmcDir, getGlobals()['special://xbmc'], 1)
 					|        return result
 					|# END $project.name-patched: translate""".stripMargin()
 			def patches = [
@@ -520,8 +565,6 @@ if (addonBinDir != null) {
 		mustRunAfter genMainAssets, genMainJniLibs
 	}
 
-	def androidClientZip = file "$buildDir.path/$addonId-${addonVersion}.android_client.zip"
-
 	def zipAndroidClient = tasks.register('zipAndroidClient', Zip) {
 		group = project.name
 		inputs.dir addonDir
@@ -540,12 +583,15 @@ if (addonBinDir != null) {
 	tasks.register('pushAndroidClient') {
 		group = project.name
 		dependsOn zipAndroidClient
-		def destinationDir = "/sdcard$dataDir"
+
+		ext {
+			destinationDir = "/sdcard$dataDir"
+		}
 
 		doFirst {
 			exec {
 				executable = android.adbExecutable
-				args 'shell', 'rm', '-f', "$destinationDir$androidClientZip.name"
+				args 'shell', 'rm', '-f', "$destinationDir/$androidClientZip.name"
 			}
 		}
 
@@ -560,7 +606,10 @@ if (addonBinDir != null) {
 	tasks.register('genPages') {
 		group = project.name
 		dependsOn tasks.named('assembleRelease'), zipAndroidClient
-		def pagesDir = "$rootDir.path/docs"
+
+		ext {
+			pagesDir = "$rootDir.path/docs"
+		}
 
 		doFirst {
 			delete pagesDir
@@ -573,7 +622,7 @@ if (addonBinDir != null) {
 				gitignore.withWriterAppend { it.writeLine gitignorePages }
 			}
 			copy {
-				from "$buildDir.path/outputs/apk/release"
+				from "$buildFolder.path/outputs/apk/release"
 				into pagesDir
 				include '*.apk'
 			}
@@ -581,7 +630,7 @@ if (addonBinDir != null) {
 				from androidClientZip
 				into pagesDir
 			}
-			def repoZip = file "$pagesDir/$addonId/$addonId-${addonVersion}.zip"
+			def repoZip = file "$pagesDir/$addonId/$addonId-${appVersionName}.zip"
 			copy {
 				from androidClientZip
 				into repoZip.parentFile

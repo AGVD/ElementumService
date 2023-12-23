@@ -15,7 +15,13 @@ class DaemonInvoker(
 	vararg subprocessArgs: String
 ) : BaseDaemonInvoker(context, mainHandler) {
 
-	private val addonDir = File(context.filesDir, ".kodi/addons/${BuildConfig.ADDON_ID}")
+	private val homeDir = File(context.filesDir, ".kodi")
+
+	private val xbmcDir = File(context.cacheDir, "apk/assets")
+
+	private val addonDir = File(homeDir, "addons/${BuildConfig.ADDON_ID}")
+
+	private val lockfile = File(addonDir, ".lockfile")
 
 	override val subprocessAssets = mapOf(BuildConfig.ADDON_ID to addonDir)
 
@@ -34,12 +40,6 @@ class DaemonInvoker(
 	override val subprocessRetryDelay = 5_000L
 
 	override val subprocessTag = BuildConfig.ADDON_ID
-
-	private val lockfile = File(addonDir, ".lockfile")
-
-	private val homeDir = File(context.filesDir, ".kodi")
-
-	private val xbmcDir = File(context.cacheDir, "apk/assets")
 
 	private var channel: ServerSocketChannel? = null
 
@@ -79,31 +79,37 @@ class DaemonInvoker(
 		}
 	}
 
-	private fun translatePath() {
-		if (isDestroyed) return
-		val regex = "-localPort=(\\d+)".toRegex()
-		val port = subprocessCmd.firstNotNullOfOrNull {
-			regex.matchEntire(it)?.groupValues?.get(1)?.toIntOrNull()
-		} ?: 65220
+	private fun send(port: Int, data: String): Long {
+		if (isDestroyed) return -1L
 		ServerSocketChannel.open().use { channel ->
-			if (!mainHandler.post(toSetChannelRunnable(channel))) return
+			if (!mainHandler.post(toSetChannelRunnable(channel))) return -1L
 			channel.bind(InetSocketAddress(port))
-			channel.accept().use { it.write(ByteBuffer.wrap("${homeDir.path}/\u0000${xbmcDir.path}/".toByteArray())) }
-			if (!isDestroyed) {
-				mainHandler.post(clearChannelRunnable)
-			}
+			channel.accept().use { it.write(ByteBuffer.wrap(data.toByteArray())) }
+			return if (isDestroyed ||
+				!mainHandler.post(clearChannelRunnable)
+			) -1L else 1_000L
 		}
 	}
 
-	override fun invoke(): Long {
-		if (subprocessCmd.contains(BuildConfig.ARG_TRANSLATE_PATH)) {
+	private val invoker = if (subprocessArgs.contains(BuildConfig.ARG_TRANSLATE_PATH)) {
+		val regex = """-localPort=(\d+)""".toRegex()
+		val port = subprocessArgs.firstNotNullOfOrNull {
+			regex.matchEntire(it)?.groupValues?.get(1)?.toIntOrNull()
+		} ?: BuildConfig.LOCAL_PORT
+		val data = "${homeDir.path}/\u0000${xbmcDir.path}/"
+		{
 			try {
-				translatePath()
+				send(port, data)
 			} catch (ignored: Throwable) {
+				-1L
 			}
-			return -1L
 		}
-		lockfile.delete()
-		return super.invoke()
+	} else {
+		{
+			lockfile.delete()
+			super.invoke()
+		}
 	}
+
+	override fun invoke() = invoker()
 }
