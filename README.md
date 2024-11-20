@@ -11,7 +11,7 @@ A service that executes binaries for [Kodi](https://github.com/xbmc/xbmc)'s addo
 
 Use source [https://StefanIlchev.github.io/ElementumService](https://StefanIlchev.github.io/ElementumService).
 
-## Install
+### Install
 
 Install an `.apk` with an [Application Binary Interface](https://en.wikipedia.org/wiki/Application_binary_interface) (ABI) that your device supports or the bigger universal one.
 
