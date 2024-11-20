@@ -13,7 +13,7 @@ Use source [https://StefanIlchev.github.io/ElementumService](https://StefanIlche
 
 ### Install
 
-Install an `.apk` with an [Application Binary Interface](https://en.wikipedia.org/wiki/Application_binary_interface) (ABI) that your device supports or the bigger universal one.
+Install an `.apk` with an [Application Binary Interface](https://en.wikipedia.org/wiki/Application_binary_interface) (ABI) that your device supports or the bigger universal one..
 
 Add [Elementum](https://github.com/elgatito/plugin.video.elementum) to [Kodi](https://github.com/xbmc/xbmc) from the `.android_client.zip`. When the addon completes installation, it will start the service app which may ask you for some [Android permissions](https://support.google.com/googleplay/answer/6270602).
 
