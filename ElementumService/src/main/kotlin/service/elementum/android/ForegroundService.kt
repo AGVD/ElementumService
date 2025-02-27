@@ -10,7 +10,7 @@ class ForegroundService : BaseForegroundService() {
 
 	override fun getDaemonInvoker(
 		data: Uri?
-	) = DaemonInvoker(this, mainHandler, *data?.fragment?.split("\u0000")?.toTypedArray() ?: emptyArray())
+	) = DaemonInvoker(this, *data?.fragment?.split("\u0000")?.toTypedArray() ?: emptyArray())
 
 	override fun getVersionName(
 		data: Uri?
@@ -22,5 +22,9 @@ class ForegroundService : BaseForegroundService() {
 
 	override fun getUpdateDownloadUri(
 		versionName: String
-	): Uri = Uri.parse("${BuildConfig.REPO_URL}${getUpdateFileName(versionName)}")
+	) = if (BuildConfig.REPO_URL.isEmpty()) {
+		null
+	} else {
+		Uri.parse("${BuildConfig.REPO_URL}${getUpdateFileName(versionName)}")
+	}
 }

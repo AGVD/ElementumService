@@ -1,25 +1,30 @@
 package service.elementum.android
 
 import android.content.Context
-import android.os.Handler
 import android.os.Looper
 import ilchev.stefan.binarywrapper.BaseDaemonInvoker
+import ilchev.stefan.binarywrapper.mainHandler
 import java.io.File
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
+import java.nio.channels.Channels
 import java.nio.channels.ServerSocketChannel
+import java.nio.channels.WritableByteChannel
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 class DaemonInvoker(
 	context: Context,
-	private val mainHandler: Handler,
 	vararg subprocessArgs: String
-) : BaseDaemonInvoker(context, mainHandler) {
+) : BaseDaemonInvoker(context) {
 
 	private val homeDir = File(context.filesDir, ".kodi")
 
 	private val xbmcDir = File(context.cacheDir, "apk/assets")
 
-	private val addonDir = File(homeDir, "addons/${BuildConfig.ADDON_ID}")
+	private val addonsDir = File(homeDir, "addons")
+
+	private val addonDir = File(addonsDir, BuildConfig.ADDON_ID)
 
 	private val lockfile = File(addonDir, ".lockfile")
 
@@ -79,30 +84,54 @@ class DaemonInvoker(
 		}
 	}
 
-	private fun send(port: Int, data: String): Long {
+	private inline fun send(port: Int, consumer: (WritableByteChannel) -> Unit): Long {
 		if (isDestroyed) return -1L
 		ServerSocketChannel.open().use { channel ->
 			if (!mainHandler.post(toSetChannelRunnable(channel))) return -1L
 			channel.bind(InetSocketAddress(port))
-			channel.accept().use { it.write(ByteBuffer.wrap(data.toByteArray())) }
+			consumer(channel.accept())
 			return if (isDestroyed ||
 				!mainHandler.post(clearChannelRunnable)
 			) -1L else 1_000L
 		}
 	}
 
-	private val invoker = if (subprocessArgs.contains(BuildConfig.ARG_TRANSLATE_PATH)) {
-		val regex = """-localPort=(\d+)""".toRegex()
-		val port = subprocessArgs.firstNotNullOfOrNull {
+	private inline fun toSendInvoker(crossinline consumer: (WritableByteChannel) -> Unit): () -> Long {
+		val regex = """${BuildConfig.ARG_LOCAL_PORT}=(\d+)""".toRegex()
+		val port = subprocessCmd.firstNotNullOfOrNull {
 			regex.matchEntire(it)?.groupValues?.get(1)?.toIntOrNull()
 		} ?: BuildConfig.LOCAL_PORT
-		val data = "${homeDir.path}/\u0000${xbmcDir.path}/"
-		{
+		return {
 			try {
-				send(port, data)
+				send(port, consumer)
 			} catch (ignored: Throwable) {
 				-1L
 			}
+		}
+	}
+
+	private fun toAddonInfoConsumer(
+		addonId: String
+	): (WritableByteChannel) -> Unit = { channel ->
+		ZipOutputStream(Channels.newOutputStream(channel).buffered()).use { zip ->
+			for (file in File(addonsDir, addonId).walkTopDown()) {
+				if (file.isDirectory) {
+					zip.putNextEntry(ZipEntry("${file.relativeTo(addonsDir).path}/"))
+				} else if (file.isFile) {
+					zip.putNextEntry(ZipEntry(file.relativeTo(addonsDir).path))
+					file.inputStream().use { it.copyTo(zip) }
+				}
+			}
+		}
+	}
+
+	private val invoker = """${BuildConfig.ARG_ADDON_INFO}=(\S+)""".toRegex().let { regex ->
+		subprocessCmd.firstNotNullOfOrNull { regex.matchEntire(it)?.groupValues?.get(1) }?.let {
+			toSendInvoker(toAddonInfoConsumer(it))
+		}
+	} ?: if (BuildConfig.ARG_TRANSLATE_PATH in subprocessCmd) {
+		toSendInvoker { channel ->
+			channel.use { it.write(ByteBuffer.wrap("${homeDir.path}/\u0000${xbmcDir.path}/".toByteArray())) }
 		}
 	} else {
 		{

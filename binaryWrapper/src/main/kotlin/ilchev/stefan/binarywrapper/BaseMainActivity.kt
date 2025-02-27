@@ -38,32 +38,14 @@ abstract class BaseMainActivity : Activity() {
 
 	private var isExternalStorageManager
 		get() = Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager() ||
-				getSharedPreferences(BuildConfig.LIBRARY_PACKAGE_NAME, MODE_PRIVATE)
-					.getBoolean(MANAGE_EXTERNAL_STORAGE, false)
-		set(value) = getSharedPreferences(BuildConfig.LIBRARY_PACKAGE_NAME, MODE_PRIVATE)
-			.edit()
-			.putBoolean(MANAGE_EXTERNAL_STORAGE, value)
-			.apply()
+				sharedPreferences.getBoolean(MANAGE_EXTERNAL_STORAGE, false)
+		set(value) = sharedPreferences.edit().putBoolean(MANAGE_EXTERNAL_STORAGE, value).apply()
 
 	private var isForegroundServiceStart
-		get() = getSharedPreferences(BuildConfig.LIBRARY_PACKAGE_NAME, MODE_PRIVATE)
-			.getBoolean(FOREGROUND_SERVICE, false)
-		set(value) = getSharedPreferences(BuildConfig.LIBRARY_PACKAGE_NAME, MODE_PRIVATE)
-			.edit()
-			.putBoolean(FOREGROUND_SERVICE, value)
-			.apply()
+		get() = sharedPreferences.getBoolean(FOREGROUND_SERVICE, false)
+		set(value) = sharedPreferences.edit().putBoolean(FOREGROUND_SERVICE, value).apply()
 
-	private fun isActivityFound(
-		intent: Intent
-	) = try {
-		val activityInfo = intent.resolveActivityInfo(packageManager, 0)
-		activityInfo?.isEnabled == true && activityInfo.exported
-	} catch (t: Throwable) {
-		Log.w(TAG, t)
-		false
-	}
-
-	private fun tryStartActivityForResult(intent: Intent, requestCode: Int, options: Bundle?) {
+	private fun tryStartActivityForResult(intent: Intent, requestCode: Int = -1, options: Bundle? = null) {
 		try {
 			startActivityForResult(intent, requestCode, options)
 		} catch (t: Throwable) {
@@ -71,19 +53,10 @@ abstract class BaseMainActivity : Activity() {
 		}
 	}
 
-	private fun tryStopService(
-		intent: Intent
-	) = try {
-		stopService(intent)
-	} catch (t: Throwable) {
-		Log.w(TAG, t)
-		false
-	}
-
 	private fun hideAllowCmd() {
 		allowCmdRunnable?.also {
 			allowCmdRunnable = null
-			BaseForegroundService.mainHandler.removeCallbacks(it)
+			mainHandler.removeCallbacks(it)
 		}
 		allowCmdDialog?.apply {
 			allowCmdDialog = null
@@ -100,7 +73,7 @@ abstract class BaseMainActivity : Activity() {
 		val applicationInfo = applicationInfo
 		val applicationIcon = applicationInfo.icon
 		val applicationLabel = packageManager.getApplicationLabel(applicationInfo)
-		val cmd = "adb shell appops set --uid $packageName $permission allow"
+		val cmd = "adb shell appops set $packageName $permission allow"
 		val allowCmdDialog = AlertDialog.Builder(this)
 			.setIcon(applicationIcon)
 			.setTitle(applicationLabel)
@@ -128,13 +101,13 @@ abstract class BaseMainActivity : Activity() {
 				if (isStopIntent) {
 					callForegroundServiceAndFinish()
 				} else if (allowCmdDialog.isShowing && !supplier()) {
-					BaseForegroundService.mainHandler.postDelayed(this, 100L)
-				} else if (requestRequestedPermissions() == null) {
-					callForegroundServiceAndFinish()
+					mainHandler.postDelayed(this, 100L)
+				} else {
+					requestRequestedPermissions() ?: callForegroundServiceAndFinish()
 				}
 			}
 		}
-		BaseForegroundService.mainHandler.post(allowCmdRunnable)
+		mainHandler.post(allowCmdRunnable)
 		this.allowCmdRunnable = allowCmdRunnable
 	}
 
@@ -150,7 +123,7 @@ abstract class BaseMainActivity : Activity() {
 		if (isActivityFound(intent) ||
 			isActivityFound(intent.setAction(Settings.ACTION_APPLICATION_DETAILS_SETTINGS))
 		) {
-			tryStartActivityForResult(intent, requestCode.ordinal, null)
+			tryStartActivityForResult(intent, requestCode.ordinal)
 		} else {
 			showAllowCmd(permission, supplier, consumer)
 		}
@@ -158,14 +131,12 @@ abstract class BaseMainActivity : Activity() {
 	}
 
 	private fun requestRequestedPermissions(): Array<String>? {
+		if (isStopIntent) return null
 		try {
-			val packageInfo = BaseForegroundService.getPackageInfo(this, PackageManager.GET_PERMISSIONS)
+			val packageInfo = getPackageInfo(PackageManager.GET_PERMISSIONS)
 			val set = mutableSetOf(*packageInfo.requestedPermissions ?: emptyArray())
 			if (set.remove(Manifest.permission.REQUEST_INSTALL_PACKAGES) &&
-				BaseForegroundService.getUpdate(
-					packageInfo,
-					versionName
-				) != null &&
+				getUpdate(packageInfo, versionName) != null &&
 				request(
 					"REQUEST_INSTALL_PACKAGES",
 					{ isInstallPackagesRequester },
@@ -187,17 +158,20 @@ abstract class BaseMainActivity : Activity() {
 				)
 			) return arrayOf(MANAGE_EXTERNAL_STORAGE)
 			if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
-				set.remove(FOREGROUND_SERVICE)
+				set -= FOREGROUND_SERVICE
 			}
 			if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-				set.remove(UPDATE_PACKAGES_WITHOUT_USER_ACTION)
+				set -= UPDATE_PACKAGES_WITHOUT_USER_ACTION
 			}
 			if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-				set.remove(POST_NOTIFICATIONS)
+				set -= POST_NOTIFICATIONS
+			}
+			if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+				set -= FOREGROUND_SERVICE_MEDIA_PLAYBACK
 			}
 			if (Build.VERSION.SDK_INT > Build.VERSION_CODES.Q) {
-				set.remove(Manifest.permission.READ_EXTERNAL_STORAGE)
-				set.remove(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+				set -= Manifest.permission.READ_EXTERNAL_STORAGE
+				set -= Manifest.permission.WRITE_EXTERNAL_STORAGE
 			}
 			if (set.isNotEmpty()) {
 				val permissions = set.toTypedArray()
@@ -219,7 +193,7 @@ abstract class BaseMainActivity : Activity() {
 			val service = (intent?.let(::Intent) ?: Intent()).setClass(this, foregroundServiceClass)
 			if (isStopIntent) {
 				tryStopService(service)
-				BaseForegroundService.tryShowDifferent(this, versionName)
+				tryShowDifferent(versionName)
 			} else if (isForegroundServiceStart) {
 				startForegroundService(service)
 			}
@@ -232,9 +206,7 @@ abstract class BaseMainActivity : Activity() {
 	override fun onResume() {
 		super.onResume()
 		isForegroundServiceStart = true
-		if (isStopIntent || requestRequestedPermissions() == null) {
-			callForegroundServiceAndFinish()
-		}
+		requestRequestedPermissions() ?: callForegroundServiceAndFinish()
 	}
 
 	override fun onPause() {
@@ -287,6 +259,9 @@ abstract class BaseMainActivity : Activity() {
 
 		@SuppressLint("InlinedApi")
 		private const val POST_NOTIFICATIONS = Manifest.permission.POST_NOTIFICATIONS
+
+		@SuppressLint("InlinedApi")
+		private const val FOREGROUND_SERVICE_MEDIA_PLAYBACK = Manifest.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK
 
 		@SuppressLint("InlinedApi")
 		private const val MANAGE_EXTERNAL_STORAGE = Manifest.permission.MANAGE_EXTERNAL_STORAGE

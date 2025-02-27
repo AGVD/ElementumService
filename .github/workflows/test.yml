@@ -1,0 +1,43 @@
+name: test
+
+on:
+  workflow_dispatch:
+    inputs:
+      android-api-level:
+        description: Android API Level
+        required: true
+        type: number
+        default: 35
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.2.0
+
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4.4.0
+        with:
+          distribution: 'microsoft'
+          java-version: '21'
+
+      - name: Build with Gradle
+        uses: gradle/actions/setup-gradle@v4.1.0
+
+      - name: Enable KVM group perms
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Android Emulator Runner
+        uses: ReactiveCircus/android-emulator-runner@v2.32.0
+        with:
+          api-level: ${{ github.event.inputs.android-api-level }}
+          arch: x86_64
+          script: ./gradlew connectedDebugAndroidTest testDebugUnitTest
+
+      - name: Test Summary Action
+        uses: jeantessier/test-summary-action@v1.0.6

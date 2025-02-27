@@ -1,7 +1,6 @@
 package ilchev.stefan.binarywrapper
 
 import android.content.Context
-import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import java.io.File
@@ -11,8 +10,7 @@ import java.util.Scanner
 import javax.security.auth.Destroyable
 
 abstract class BaseDaemonInvoker(
-	context: Context,
-	private val mainHandler: Handler
+	context: Context
 ) : () -> Long, Destroyable {
 
 	private val assetManager = context.assets
@@ -69,7 +67,7 @@ abstract class BaseDaemonInvoker(
 		ProcessBuilder(subprocessCmd).apply {
 			directory(bin)
 			redirectErrorStream(true)
-			environment().putAll(subprocessEnv)
+			environment() += subprocessEnv
 		}
 	}
 
@@ -88,7 +86,7 @@ abstract class BaseDaemonInvoker(
 	override fun equals(
 		other: Any?
 	) = other === this || other is BaseDaemonInvoker &&
-			other.javaClass == javaClass &&
+			other::class.java == this::class.java &&
 			other.subprocessAssets == subprocessAssets &&
 			other.subprocessCmd == subprocessCmd &&
 			other.subprocessEnv == subprocessEnv &&
@@ -125,7 +123,7 @@ abstract class BaseDaemonInvoker(
 			node ?: break
 			name ?: break
 			for (child in assetManager.list(node) ?: emptyArray()) {
-				deque.add("$node/$child")
+				deque += "$node/$child"
 			}
 			val file = File(parent, name)
 			try {
@@ -177,12 +175,12 @@ abstract class BaseDaemonInvoker(
 		Log.v(TAG, "SUBPROCESS_EXIT_VALUE = $exitValue")
 		if (isDestroyed ||
 			!mainHandler.post(clearProcessRunnable) ||
-			subprocessExitValuesEnd.contains(exitValue)
+			exitValue in subprocessExitValuesEnd
 		) return -1L
-		if (subprocessExitValuesSkip.contains(exitValue)) {
+		if (exitValue in subprocessExitValuesSkip) {
 			return subprocessRetryDelay
 		}
-		if (subprocessExitValuesStart.contains(exitValue)) {
+		if (exitValue in subprocessExitValuesStart) {
 			attempt = 0
 		} else if (++attempt > subprocessRetriesCount) {
 			return -1L
