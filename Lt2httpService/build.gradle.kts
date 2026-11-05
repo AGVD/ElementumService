@@ -12,126 +12,81 @@ import java.io.StringWriter
 import java.util.Properties
 
 plugins {
-	id("com.android.application")
-	kotlin("android")
+	alias(libs.plugins.android.application)
 }
 
-val localProperties: Properties by rootProject.extra
+val localProperties = rootProject.extra["localProperties"] as Properties
 
-val pagesDir: File by rootProject.extra
+val pagesDir = rootProject.extra["pagesDir"] as File
 
-val srcGen: String by extra {
-	layout.buildDirectory.file("src").get().asFile.path
-}
+val srcGen: String = layout.buildDirectory.file("src").get().asFile.path
 
-val srcMainGen by extra {
-	"$srcGen/main"
-}
+val srcMainGen = "$srcGen/main"
 
-val srcMainAssetsGen by extra {
-	"$srcMainGen/assets"
-}
+val srcMainAssetsGen = "$srcMainGen/assets"
 
-val srcMainJniLibsGen by extra {
-	"$srcMainGen/jniLibs"
-}
+val srcMainJniLibsGen = "$srcMainGen/jniLibs"
 
-val appVersionCode by extra {
-	System.getProperty("version.code")?.toInt()
-		?: localProperties.getProperty("lt2http.version.code")?.toInt()
-		?: libs.versions.lt2http.versionCode.get().toInt()
-}
+val appVersionCode = System.getProperty("version.code")?.toInt()
+	?: localProperties.getProperty("lt2http.version.code")?.toInt()
+	?: libs.versions.lt2http.versionCode.get().toInt()
 
-val appVersionName by extra {
-	System.getProperty("version.name")
-		?: localProperties.getProperty("lt2http.version.name")
-		?: "$appVersionCode"
-}
+val appVersionName = System.getProperty("version.name")
+	?: localProperties.getProperty("lt2http.version.name")
+	?: "$appVersionCode"
+extra["appVersionName"] = appVersionName
 
-val addonId by extra {
-	"service.lt2http"
-}
+val addonId = "service.lt2http"
 
 val addonZip: String? = System.getProperty("lt2http.addon.zip")
 	?: localProperties.getProperty("lt2http.addon.zip")
 
 val addonDir = addonZip?.let { layout.buildDirectory.file(file(it).nameWithoutExtension).get().asFile.path }
 
-val addonIdDir by extra {
-	addonDir?.let { "$it/$addonId" }
-}
+val addonIdDir = addonDir?.let { "$it/$addonId" }
 
 val binariesZip: String? = System.getProperty("lt2http.binaries.zip")
 	?: localProperties.getProperty("lt2http.binaries.zip")
 
 val binariesDir = binariesZip?.let { layout.buildDirectory.file(file(it).nameWithoutExtension).get().asFile.path }
 
-val binariesIdDir by extra {
-	binariesDir?.let { "$it/${file(it).name}" }
-}
+val binariesIdDir = binariesDir?.let { "$it/${file(it).name}" }
 
-val androidClientZip by extra {
-	layout.buildDirectory.file("$addonId-$appVersionName.android_client.zip").get().asFile
-}
+val androidClientZip: File = layout.buildDirectory.file("$addonId-$appVersionName.android_client.zip").get().asFile
 
-val abiBins by extra {
-	mapOf(
-		"arm64-v8a" to "android-arm64",
-		"armeabi-v7a" to "android-arm",
-		"x86" to "android-x86",
-		"x86_64" to "android-x64"
-	)
-}
+val abiBins = mapOf(
+	"arm64-v8a" to "android-arm64",
+	"armeabi-v7a" to "android-arm",
+	"x86" to "android-x86",
+	"x86_64" to "android-x64"
+)
 
-val mainIntentAction by extra {
-	"android.intent.action.MAIN"
-}
+val mainIntentAction = "android.intent.action.MAIN"
 
-val argAddonInfo by extra {
-	"-addonInfo"
-}
+val argAddonInfo = "-addonInfo"
 
-val argLocalPort by extra {
-	"-localPort"
-}
+val argLocalPort = "-localPort"
 
-val argTranslatePath by extra {
-	"-translatePath"
-}
+val argTranslatePath = "-translatePath"
 
-val localPort by extra {
-	65225
-}
+val localPort = 65225
 
-val kodiId by extra {
-	"org.xbmc.kodi"
-}
+val kodiId = "org.xbmc.kodi"
 
-val dataDir by extra {
-	"/Download"
-}
+val dataDir = "/Download"
 
-val kodiDataDir by extra {
-	"/Android/data/$kodiId/files"
-}
+val kodiDataDir = "/Android/data/$kodiId/files"
 
-val repoUrl by extra {
-	localProperties.getProperty("elementum.repo.url") ?: ""
-}
-
-kotlin {
-	jvmToolchain(libs.versions.jvmToolchain.get().toInt())
-}
+val repoUrl = localProperties.getProperty("elementum.repo.url") ?: ""
 
 android {
-	buildToolsVersion = libs.versions.buildToolsVersion.get()
-	compileSdk = libs.versions.compileSdk.get().toInt()
 	namespace = "service.lt2http.android"
 	testNamespace = "$namespace.test"
 	testBuildType = System.getProperty("test.build.type") ?: "debug"
+	buildToolsVersion = libs.versions.buildToolsVersion.get()
 
-	buildFeatures {
-		buildConfig = true
+	compileSdk {
+		version = release(libs.versions.compileSdk.get().toInt())
 	}
 
 	defaultConfig {
@@ -162,7 +117,7 @@ android {
 
 	buildTypes {
 
-		named("release") {
+		release {
 			val isNotTestBuildType = testBuildType != name
 			isMinifyEnabled = isNotTestBuildType
 			isShrinkResources = isNotTestBuildType
@@ -173,16 +128,20 @@ android {
 		}
 	}
 
+	buildFeatures {
+		buildConfig = true
+	}
+
 	sourceSets {
 
 		named("main") {
 
 			assets {
-				srcDir(srcMainAssetsGen)
+				directories += srcMainAssetsGen
 			}
 
 			jniLibs {
-				srcDir(srcMainJniLibsGen)
+				directories += srcMainJniLibsGen
 			}
 		}
 	}
@@ -232,22 +191,22 @@ dependencies {
 System.getProperty("adb.args")?.let {
 	tasks.register<Exec>("adb") {
 		group = project.name
-		executable = android.adbExecutable.path
-		args(*Commandline.translateCommandline(it))
 
 		doFirst {
-			println("adb ${args?.joinToString(" ")}")
+			executable(androidComponents.sdkComponents.adb.get())
+			args(*Commandline.translateCommandline(it))
+			println("adb ${args.joinToString(" ")}")
 		}
 	}
 }
 
 tasks.register<Exec>("changeDataLocation") {
 	group = project.name
-	executable = android.adbExecutable.path
-	args("shell", "echo", "xbmc.data=/sdcard$kodiDataDir", ">/sdcard/xbmc_env.properties")
 
 	doFirst {
-		println("adb ${args?.joinToString(" ")}")
+		executable(androidComponents.sdkComponents.adb.get())
+		args("shell", "echo", "xbmc.data=/sdcard$kodiDataDir", ">/sdcard/xbmc_env.properties")
+		println("adb ${args.joinToString(" ")}")
 	}
 }
 
@@ -531,7 +490,7 @@ if (addonZip != null && addonDir != null && addonIdDir != null &&
 
 		doFirst {
 			providers.exec {
-				executable = android.adbExecutable.path
+				executable(androidComponents.sdkComponents.adb.get())
 				args("shell", "rm", "-f", "$destinationDir/${androidClientZip.name}")
 				isIgnoreExitValue = true
 				println("adb ${args.joinToString(" ")}")
@@ -544,7 +503,7 @@ if (addonZip != null && addonDir != null && addonIdDir != null &&
 
 		doLast {
 			providers.exec {
-				executable = android.adbExecutable.path
+				executable(androidComponents.sdkComponents.adb.get())
 				args("push", androidClientZip.path, destinationDir)
 				isIgnoreExitValue = true
 				println("adb ${args.joinToString(" ")}")

@@ -1,20 +1,14 @@
 plugins {
-	id("com.android.library")
-	kotlin("android")
-	id("maven-publish")
-}
-
-kotlin {
-	jvmToolchain(libs.versions.jvmToolchain.get().toInt())
+	alias(libs.plugins.android.library)
+	`maven-publish`
 }
 
 android {
+	namespace = "stef40.binarywrapper"
 	buildToolsVersion = libs.versions.buildToolsVersion.get()
-	compileSdk = libs.versions.compileSdk.get().toInt()
-	namespace = "ilchev.stefan.binarywrapper"
 
-	buildFeatures {
-		buildConfig = true
+	compileSdk {
+		version = release(libs.versions.compileSdk.get().toInt())
 	}
 
 	defaultConfig {
@@ -27,10 +21,14 @@ android {
 
 	buildTypes {
 
-		named("release") {
+		release {
 			isMinifyEnabled = false
 			proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
 		}
+	}
+
+	buildFeatures {
+		buildConfig = true
 	}
 
 	publishing {
@@ -46,7 +44,7 @@ publishing {
 	publications {
 
 		register<MavenPublication>("release") {
-			groupId = "ilchev.stefan"
+			groupId = "stef40"
 			artifactId = "binary-wrapper"
 			version = libs.versions.binaryWrapper.version.get()
 

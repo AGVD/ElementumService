@@ -14,131 +14,86 @@ import java.util.Properties
 import java.util.zip.ZipFile
 
 plugins {
-	id("com.android.application")
-	kotlin("android")
+	alias(libs.plugins.android.application)
 }
 
-val localProperties: Properties by rootProject.extra
+val localProperties = rootProject.extra["localProperties"] as Properties
 
-val pagesDir: File by rootProject.extra
+val pagesDir = rootProject.extra["pagesDir"] as File
 
-val srcGen: String by extra {
-	layout.buildDirectory.file("src").get().asFile.path
-}
+val srcGen: String = layout.buildDirectory.file("src").get().asFile.path
 
-val srcMainGen by extra {
-	"$srcGen/main"
-}
+val srcMainGen = "$srcGen/main"
 
-val srcMainAssetsGen by extra {
-	"$srcMainGen/assets"
-}
+val srcMainAssetsGen = "$srcMainGen/assets"
 
-val srcMainAbiHeadsGen by extra {
-	"$srcMainGen/abiHeads"
-}
+val srcMainAbiHeadsGen = "$srcMainGen/abiHeads"
 
-val srcMainJniLibsGen by extra {
-	"$srcMainGen/jniLibs"
-}
+val srcMainJniLibsGen = "$srcMainGen/jniLibs"
 
-val appVersionCode by extra {
-	System.getProperty("version.code")?.toInt()
-		?: localProperties.getProperty("elementum.version.code")?.toInt()
-		?: libs.versions.elementum.versionCode.get().toInt()
-}
+val appVersionCode = System.getProperty("version.code")?.toInt()
+	?: localProperties.getProperty("elementum.version.code")?.toInt()
+	?: libs.versions.elementum.versionCode.get().toInt()
 
-val appVersionName by extra {
-	System.getProperty("version.name")
-		?: localProperties.getProperty("elementum.version.name")
-		?: "$appVersionCode"
-}
+val appVersionName = System.getProperty("version.name")
+	?: localProperties.getProperty("elementum.version.name")
+	?: "$appVersionCode"
+extra["appVersionName"] = appVersionName
 
-val addonId by extra {
-	"plugin.video.elementum"
-}
+val addonId = "plugin.video.elementum"
 
 val addonZip: String? = System.getProperty("elementum.addon.zip")
 	?: localProperties.getProperty("elementum.addon.zip")
 
 val addonDir = addonZip?.let { layout.buildDirectory.file(file(it).nameWithoutExtension).get().asFile.path }
 
-val addonIdDir by extra {
-	addonDir?.let { "$it/$addonId" }
-}
+val addonIdDir = addonDir?.let { "$it/$addonId" }
 
-val addonBinDir by extra {
-	addonIdDir?.let { "$it/resources/bin" }
-}
+val addonBinDir = addonIdDir?.let { "$it/resources/bin" }
 
-val androidClientZip by extra {
-	layout.buildDirectory.file("$addonId-$appVersionName.android_client.zip").get().asFile
-}
+val androidClientZip: File = layout.buildDirectory.file("$addonId-$appVersionName.android_client.zip").get().asFile
 
-val abiBins by extra {
-	mapOf(
-		"arm64-v8a" to "android_arm64",
-		"armeabi-v7a" to "android_arm",
-		"x86" to "android_x86",
-		"x86_64" to "android_x64"
-	)
-}
+val abiBins = mapOf(
+	"arm64-v8a" to "android_arm64",
+	"armeabi-v7a" to "android_arm",
+	"x86" to "android_x86",
+	"x86_64" to "android_x64"
+)
 
-val isAddonBinLib by extra {
-	localProperties.getProperty("is.elementum.addon.bin.lib")?.toBoolean() ?: addonZip?.let {
-		ZipFile(it)
-	}?.use {
-		abiBins.any { (_, bin) -> it.getEntry("$addonId/resources/bin/$bin/elementum")?.isDirectory != false }
-	} ?: false
-}
+val isAddonBinLib = localProperties.getProperty("is.elementum.addon.bin.lib")?.toBoolean() ?: addonZip?.let {
+	ZipFile(it)
+}?.use {
+	abiBins.any { (_, bin) -> it.getEntry("$addonId/resources/bin/$bin/elementum")?.isDirectory != false }
+} ?: false
 
-val mainIntentAction by extra {
-	"android.intent.action.MAIN"
-}
+val mainIntentAction = "android.intent.action.MAIN"
 
-val argAddonInfo by extra {
-	"-addonInfo"
-}
+val argAddonInfo = "-addonInfo"
 
-val argLocalPort by extra {
-	"-localPort"
-}
+val argLocalPort = "-localPort"
 
-val argTranslatePath by extra {
-	"-translatePath"
-}
+val argTranslatePath = "-translatePath"
 
-val localPort by extra {
-	65220
-}
+val localPort = 65220
 
-val kodiId by extra {
-	"org.xbmc.kodi"
-}
+val kodiId = "org.xbmc.kodi"
 
-val dataDir by extra {
-	"/Download"
-}
+val dataDir = "/Download"
 
-val kodiDataDir by extra {
-	"/Android/data/$kodiId/files"
-}
+val kodiDataDir = "/Android/data/$kodiId/files"
 
-val repoUrl by extra {
-	localProperties.getProperty("elementum.repo.url") ?: ""
-}
-
-kotlin {
-	jvmToolchain(libs.versions.jvmToolchain.get().toInt())
-}
+val repoUrl = localProperties.getProperty("elementum.repo.url") ?: ""
 
 android {
-	buildToolsVersion = libs.versions.buildToolsVersion.get()
-	compileSdk = libs.versions.compileSdk.get().toInt()
-	ndkVersion = libs.versions.ndkVersion.get()
 	namespace = "service.elementum.android"
 	testNamespace = "$namespace.test"
 	testBuildType = System.getProperty("test.build.type") ?: "debug"
+	buildToolsVersion = libs.versions.buildToolsVersion.get()
+	ndkVersion = libs.versions.ndkVersion.get()
+
+	compileSdk {
+		version = release(libs.versions.compileSdk.get().toInt())
+	}
 
 	if (isAddonBinLib) {
 		externalNativeBuild {
@@ -148,10 +103,6 @@ android {
 				path = file("CMakeLists.txt")
 			}
 		}
-	}
-
-	buildFeatures {
-		buildConfig = true
 	}
 
 	defaultConfig {
@@ -198,7 +149,7 @@ android {
 
 	buildTypes {
 
-		named("release") {
+		release {
 			val isNotTestBuildType = testBuildType != name
 			isMinifyEnabled = isNotTestBuildType
 			isShrinkResources = isNotTestBuildType
@@ -209,16 +160,20 @@ android {
 		}
 	}
 
+	buildFeatures {
+		buildConfig = true
+	}
+
 	sourceSets {
 
 		named("main") {
 
 			assets {
-				srcDir(srcMainAssetsGen)
+				directories += srcMainAssetsGen
 			}
 
 			jniLibs {
-				srcDir(srcMainJniLibsGen)
+				directories += srcMainJniLibsGen
 			}
 		}
 	}
@@ -283,22 +238,22 @@ fun toSetAddonEnabledJson(
 System.getProperty("adb.args")?.let {
 	tasks.register<Exec>("adb") {
 		group = project.name
-		executable = android.adbExecutable.path
-		args(*Commandline.translateCommandline(it))
 
 		doFirst {
-			println("adb ${args?.joinToString(" ")}")
+			executable(androidComponents.sdkComponents.adb.get())
+			args(*Commandline.translateCommandline(it))
+			println("adb ${args.joinToString(" ")}")
 		}
 	}
 }
 
 tasks.register<Exec>("changeDataLocation") {
 	group = project.name
-	executable = android.adbExecutable.path
-	args("shell", "echo", "xbmc.data=/sdcard$kodiDataDir", ">/sdcard/xbmc_env.properties")
 
 	doFirst {
-		println("adb ${args?.joinToString(" ")}")
+		executable(androidComponents.sdkComponents.adb.get())
+		args("shell", "echo", "xbmc.data=/sdcard$kodiDataDir", ">/sdcard/xbmc_env.properties")
+		println("adb ${args.joinToString(" ")}")
 	}
 }
 
@@ -520,6 +475,10 @@ if (addonZip != null && addonDir != null && addonIdDir != null && addonBinDir !=
 				|    if os.path.exists(lockfile):
 				|        os.remove(lockfile)
 				|# END ${project.name}-patched: stop""".trimMargin()
+			val permissionLine = "            ensure_exec_perms(elementum_binary)"
+			val permissionLinePatched = """# BEGIN ${project.name}-patched: permission
+				|#$permissionLine
+				|# END ${project.name}-patched: permission""".trimMargin()
 			val startLine = "            proc = subprocess.Popen(args, **kwargs)"
 			val startLinePatched = """# BEGIN ${project.name}-patched: start
 				|#$startLine
@@ -615,6 +574,7 @@ if (addonZip != null && addonDir != null && addonIdDir != null && addonBinDir !=
 					listOf(versionLine, versionLinePatched),
 					listOf(binaryLine, binaryLinePatched),
 					listOf(stopLine, stopLinePatched),
+					listOf(permissionLine, permissionLinePatched),
 					listOf(startLine, startLinePatched)
 				),
 				file("$addonIdDir/resources/site-packages/elementum/navigation.py") to mutableListOf(
@@ -737,7 +697,7 @@ if (addonZip != null && addonDir != null && addonIdDir != null && addonBinDir !=
 
 		doFirst {
 			providers.exec {
-				executable = android.adbExecutable.path
+				executable(androidComponents.sdkComponents.adb.get())
 				args("shell", "rm", "-f", "$destinationDir/${androidClientZip.name}")
 				isIgnoreExitValue = true
 				println("adb ${args.joinToString(" ")}")
@@ -750,7 +710,7 @@ if (addonZip != null && addonDir != null && addonIdDir != null && addonBinDir !=
 
 		doLast {
 			providers.exec {
-				executable = android.adbExecutable.path
+				executable(androidComponents.sdkComponents.adb.get())
 				args("push", androidClientZip.path, destinationDir)
 				isIgnoreExitValue = true
 				println("adb ${args.joinToString(" ")}")

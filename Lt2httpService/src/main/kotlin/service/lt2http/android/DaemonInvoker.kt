@@ -2,8 +2,8 @@ package service.lt2http.android
 
 import android.content.Context
 import android.os.Looper
-import ilchev.stefan.binarywrapper.BaseDaemonInvoker
-import ilchev.stefan.binarywrapper.mainHandler
+import stef40.binarywrapper.BaseDaemonInvoker
+import stef40.binarywrapper.mainHandler
 import java.io.File
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
@@ -53,7 +53,7 @@ class DaemonInvoker(
 			channel = null
 			try {
 				close()
-			} catch (ignored: Throwable) {
+			} catch (_: Throwable) {
 			}
 		}
 	}
@@ -77,7 +77,7 @@ class DaemonInvoker(
 		if (isDestroyed) {
 			try {
 				value.close()
-			} catch (ignored: Throwable) {
+			} catch (_: Throwable) {
 			}
 		} else {
 			channel = value
@@ -104,7 +104,7 @@ class DaemonInvoker(
 		return {
 			try {
 				send(port, consumer)
-			} catch (ignored: Throwable) {
+			} catch (_: Throwable) {
 				-1L
 			}
 		}

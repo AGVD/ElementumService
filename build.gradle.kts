@@ -3,23 +3,22 @@ import groovy.xml.StreamingMarkupBuilder
 import groovy.xml.XmlSlurper
 import groovy.xml.XmlUtil
 import org.codehaus.groovy.runtime.EncodingGroovyMethods
-import java.io.FileFilter
 import java.io.StringWriter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Properties
 
 plugins {
-	id("com.github.breadmoirai.github-release")
+	alias(libs.plugins.android.application) apply false
+	alias(libs.plugins.android.library) apply false
+	alias(libs.plugins.github.release)
 }
 
-val localProperties by extra {
-	Properties().also { file("local.properties").takeIf(File::isFile)?.bufferedReader()?.use(it::load) }
-}
+val localProperties = Properties().also {
+	file("local.properties").takeIf(File::isFile)?.bufferedReader()?.use(it::load)
+}.also { extra["localProperties"] = it }
 
-val pagesDir by extra {
-	file("docs")
-}
+val pagesDir = file("docs").also { extra["pagesDir"] = it }
 
 subprojects {
 
@@ -27,7 +26,6 @@ subprojects {
 		google()
 		mavenCentral()
 		mavenLocal()
-		maven("https://jitpack.io")
 	}
 
 	tasks.withType<JavaCompile>().configureEach {
@@ -35,7 +33,7 @@ subprojects {
 	}
 }
 
-val genPages = tasks.register("genPages") {
+val genPages: TaskProvider<*> = tasks.register("genPages") {
 	group = project.name
 	outputs.dir(pagesDir)
 
@@ -53,7 +51,7 @@ val genPages = tasks.register("genPages") {
 	}
 }
 
-val genIndex = tasks.register("genIndex") {
+val genIndex: TaskProvider<*> = tasks.register("genIndex") {
 	val repoInfo = File(pagesDir, "addons.xml")
 	val repoInfoMd5 = File(pagesDir, "addons.xml.md5")
 	val indexPage = File(pagesDir, "index.html")
@@ -73,7 +71,7 @@ val genIndex = tasks.register("genIndex") {
 					"addons" {
 						val parser = XmlSlurper()
 						val builder = StreamingMarkupBuilder()
-						pagesDir.listFiles(FileFilter { it.isDirectory() })?.sorted()?.forEach {
+						pagesDir.listFiles { it: File -> it.isDirectory() }?.sorted()?.forEach {
 							val addonsInfo = parser.parse(File(it, repoInfo.name))
 							mkp.yieldUnescaped(builder.bindNode(addonsInfo.children()))
 						}
@@ -102,7 +100,7 @@ val genIndex = tasks.register("genIndex") {
 
 							"table" {
 								val formatter = SimpleDateFormat("yyyy-MM-dd HH:mm")
-								pagesDir.listFiles(FileFilter { it.isFile() && it != indexPage })?.sorted()?.forEach {
+								pagesDir.listFiles { it: File -> it.isFile() && it != indexPage }?.sorted()?.forEach {
 									val name = it.name
 									val date = formatter.format(Date(it.lastModified()))
 									val size = "${it.length()}B"
@@ -141,6 +139,6 @@ tasks.githubRelease {
 		|${localProperties.getProperty("github.body") ?: ""}""".trimMargin()
 	prerelease = true
 	releaseAssets.from(genIndex.map { task ->
-		pagesDir.listFiles(FileFilter { it.isFile() && it !in task.outputs.files })?.sorted() ?: listOf()
+		pagesDir.listFiles { it: File -> it.isFile() && it !in task.outputs.files }?.sorted() ?: listOf()
 	})
 }
